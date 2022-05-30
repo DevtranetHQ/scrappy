@@ -6,8 +6,13 @@ from discord.ext.commands import Context
 
 import config
 
+import cogs.scrappy
 
-bot = Bot(command_prefix=commands.when_mentioned_or(prefix), intents=intents)
+intents = discord.Intents.default()
+intents.members = True
+intents.reactions = True
+
+bot = Bot(command_prefix=commands.when_mentioned_or(config.PREFIX), intents=intents)
 
 @bot.event
 async def on_ready() -> None:
@@ -17,6 +22,10 @@ async def on_ready() -> None:
     print(f"Logged in as {bot.user.name}")
     print(f"Discord API version: {discord.__version__}")
 
+
+# ADD COGS
+
+bot.add_cog(cogs.scrappy.ScrapbookPosts(bot))
 
 if __name__ == "__main__":
     bot.run(config.TOKEN)
