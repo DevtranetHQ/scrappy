@@ -6,7 +6,7 @@ from discord.ext.commands import Context
 
 import config
 
-import cogs.scrappy
+import cogs.posts.bot
 
 intents = discord.Intents.default()
 intents.members = True
@@ -25,7 +25,8 @@ async def on_ready() -> None:
 
 # ADD COGS
 
-bot.add_cog(cogs.scrappy.ScrapbookPosts(bot))
+bot.add_cog(cogs.posts.bot.ScrapbookPosts(bot))
 
 if __name__ == "__main__":
-    bot.run(config.TOKEN)
+    print(config.SECRETS.DISCORD_TOKEN, "\n\n")
+    bot.run(config.SECRETS.DISCORD_TOKEN)
