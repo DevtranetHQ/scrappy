@@ -1,1 +1,1 @@
-from . import scrappy
+from . import posts
