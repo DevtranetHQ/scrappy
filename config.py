@@ -3,6 +3,8 @@ import json
 from io import StringIO
 from collections import namedtuple
 
+print("\n~Importing CONFIG~\n")
+
 # Read config from environment ("env", "json")
 with open("texts.json") as f:
     text_data = f.read()
@@ -25,5 +27,5 @@ SECRETS = SECRET_FIELDS(**secret_data)
 DISCORD_TOKEN = SECRETS.DISCORD_TOKEN
 PREFIX = "$"
 
-PERSIST_POSTS_INTERVAL = 10 # seconds
+PERSIST_POSTS_INTERVAL = 1  # seconds
 PERSIST_POST_ENDPOINT = "http://httpbin.org"

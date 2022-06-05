@@ -2,20 +2,27 @@ import discord
 from discord.ext import commands
 from discord.ext.commands import Context
 from discord.ext import tasks
-from typing import List 
+from typing import List
 import datetime
 
-import config 
+import config
 from .core import services as services
 from .core import models as models
+import servus
+
 
 class ScrapbookPosts(commands.Cog, name="scrapbook_posts"):
     def __init__(self, *args, **kwargs):
-
+        print(args, kwargs)
         self.channels = set()
         self.task_queue = {}
+        self.session = servus.ClientSession()
 
-    @commands.command(alias="asc", strip_after_prefix=True)
+    @commands.Cog.listener()
+    async def on_ready(self):
+        self.persist_posts_task.start()
+
+    @commands.command(aliases=["asc", "add_channel"], strip_after_prefix=True)
     async def add_scrapbook_channel(self, ctx, channel: discord.channel.TextChannel):
         """Define a channel for Scrappy to monitor for messages
 
@@ -24,48 +31,63 @@ class ScrapbookPosts(commands.Cog, name="scrapbook_posts"):
             channel -- _description_
         """
         self.channels.add(channel)
-        channel.edit(
-            topic = config.TEXT.SCRAPBOOK_CHANNEL_TITLE
+        await channel.edit(topic=config.TEXT.SCRAPBOOK_CHANNEL_TITLE)
+        embed = discord.Embed(
+            title="Awesome!",
+            description=f"Now monitoring {channel.mention} for posts...",
+            color=0xE02B2B,
         )
+        await ctx.send(embed=embed)
 
     @commands.Cog.listener()
     async def on_message(self, ctx: Context):
         """When new messages are created, check for attachements/content"""
-        
         # Check if message is in a scrappy channel
-        if ctx.message.channel in self.channels:
+        if ctx.channel in self.channels:
             # Check if message has attachments/images
-            if ctx.message.attachments:
+            if ctx.attachments:
                 post = self.add_post_to_queue(
-                    attachments = ctx.message.attachments,
-                    created_at = ctx.message.created_at,
-                    author = ctx.message.author.id,
-                    text = ctx.message.content
+                    attachments=ctx.attachments,
+                    created_at=ctx.created_at,
+                    author=ctx.author.id,
+                    text=ctx.content,
                 )
-                await ctx.message.add_reaction("🚀")
-                
+                await ctx.add_reaction("🚀")
+                print(post.to_json())
                 embed = discord.Embed(
-                        title="Awesome!",
-                        description=f"Here's our text {post.to_json()=}",
-                        # We need to capitalize because the command arguments have no capital letter in the code.
-                        color=0xE02B2B,
-                    )
-                await ctx.send(embed=embed)
+                    title="Awesome!",
+                    description=f"Here's our text {post.to_json()=}",
+                    # We need to capitalize because the command arguments have no capital letter in the code.
+                    color=0xE02B2B,
+                )
+                await ctx.channel.send(embed=embed)
             else:
-                await ctx.message.add_reaction("👀")
-
+                await ctx.add_reaction("👀")
 
     @tasks.loop(seconds=config.PERSIST_POSTS_INTERVAL)
-    async def persist_posts(self):
+    async def persist_posts_task(self):
         """Persist task queue to API"""
+        print(f"Running Background Task {self.task_queue}")
         persisted = []
-        for post in self.task_queue:
-            if services.save_post(post):
+        for author, post in self.task_queue.items():
+            if await services.save_post(session=self.session, post=post):
                 persisted.append(post.author)
 
         [self.task_queue.pop(author) for author in persisted]
-
-    def add_post_to_queue(self, author, post_creator:discord.Member, attachments:List[discord.Attachment], text:str, created_at:datetime.datetime):
-        new_post = models.Post(author, attachments, created_at)
+        print(f"Finished Background Task {self.task_queue}")
+    def add_post_to_queue(
+        self,
+        author,
+        attachments: List[discord.Attachment],
+        text: str,
+        created_at: datetime.datetime,
+    ):
+        new_post = models.Post(
+            author=author, attachments=attachments, text=text, created_at=created_at
+        )
         self.task_queue[author] = new_post
         return new_post
+
+    @classmethod
+    def from_db(bot_instance:discord.ext.commands.Bot):
+        pass
